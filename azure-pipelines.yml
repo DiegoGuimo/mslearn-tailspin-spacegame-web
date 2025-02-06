@@ -23,10 +23,10 @@ steps:
     version: '16.x'
 
 - script: 'npm cache clean --force'
-  displayName: 'clean NPM cache'
+  displayName: 'Clean NPM cache'
 
-- script: 'if exist node_moduls rmdir /s /q node_modules'
-  displayName: 'delete node_modules directory'
+- script: 'if exist node_modules rmdir /s /q node_modules'
+  displayName: 'Delete node_modules directory'
   condition: succeededOrFailed()
 
 - task: Npm@1
@@ -35,7 +35,6 @@ steps:
     verbose: false
     arguments: '--no-optional'
     
-
 - script: 'npx sass $(wwwrootDir) --no-source-map --style=compressed'
   displayName: 'Compile Sass assets'
 
@@ -70,25 +69,43 @@ steps:
     arguments: 'restore'
 
 - task: DotNetCoreCLI@2
-  displayName: 'Run unit tests - $(buildConfiguration)'
+  displayName: 'Run unit tests with coverage - $(buildConfiguration)'
   inputs:
     command: 'test'
-    arguments: '--no-build --configuration $(buildConfiguration)'
+    arguments: '--no-build --configuration $(buildConfiguration) --collect:"XPlat Code Coverage"'
     publishTestResults: true
     projects: '**/*.Tests.csproj'
 
+# 🛠️ LISTAR ARCHIVOS PARA VERIFICAR DONDE SE GENERA LA COBERTURA
+- task: CmdLine@2
+  displayName: 'List files in TestResults directory'
+  inputs:
+    script: 'dir /s /b $(Build.SourcesDirectory)\Tailspin.SpaceGame.Web.Tests\TestResults'
+
+# ✅ CONVERTIR COBERTURA A FORMATO COBERTURA.XML
+- task: CmdLine@2
+  displayName: 'Convert .coverage to cobertura.xml'
+  inputs:
+    script: |
+      reportgenerator -reports:$(Build.SourcesDirectory)/Tailspin.SpaceGame.Web.Tests/TestResults/**/*.coverage -targetdir:$(Build.SourcesDirectory)/CodeCoverage -reporttypes:Cobertura
+  condition: succeededOrFailed()
+
+# ✅ GENERAR REPORTE DE COBERTURA SOLO SI EL ARCHIVO EXISTE
 - task: DotNetCoreCLI@2
   displayName: 'Create code coverage report'
   inputs:
     command: custom
     custom: tool
-    arguments: 'run reportgenerator -reports:$(Build.SourcesDirectory)/Tailspin.SpaceGame.Web.Tests/TestResults/Coverage/coverage.cobertura.xml -targetdir:$(Build.SourcesDirectory)/CodeCoverage -reporttypes:HtmlInline_AzurePipelines'
+    arguments: 'run reportgenerator -reports:$(Build.SourcesDirectory)/CodeCoverage/coverage.cobertura.xml -targetdir:$(Build.SourcesDirectory)/CodeCoverage -reporttypes:HtmlInline_AzurePipelines'
+  condition: succeededOrFailed()
 
+# ✅ PUBLICAR REPORTE DE COBERTURA CON RUTA CORRECTA
 - task: PublishCodeCoverageResults@1
   displayName: 'Publish code coverage report'
   inputs:
     codeCoverageTool: 'cobertura'
-    summaryFileLocation: '$(Build.SourcesDirectory)/**/coverage.cobertura.xml'
+    summaryFileLocation: '$(Build.SourcesDirectory)/CodeCoverage/coverage.cobertura.xml'
+  condition: succeededOrFailed()
 
 - task: DotNetCoreCLI@2
   displayName: 'Publish the project - $(buildConfiguration)'
