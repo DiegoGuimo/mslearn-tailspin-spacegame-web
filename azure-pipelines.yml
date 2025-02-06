@@ -31,8 +31,11 @@ steps:
     arguments: '--no-optional'
     
 
-- script: './node_modules/.bin/node-sass $(wwwrootDir) --output $(wwwrootDir)'
+- script: 'npx sass $(wwwrootDir) --no-source-map --style=compressed'
   displayName: 'Compile Sass assets'
+
+- script: 'npm install --global gulp-cli'
+  displayName: 'Install Gulp CLI globally'
 
 - task: gulp@1
   displayName: 'Run gulp tasks'
