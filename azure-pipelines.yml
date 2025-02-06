@@ -63,11 +63,12 @@ steps:
     projects: '**/*.csproj'
 
 - task: DotNetCoreCLI@2
-  displayName: 'Install .NET tools from local manifest'
+  displayName: 'Install ReportGenerator'
   inputs:
-    command: custom
-    custom: tool
-    arguments: 'restore'
+    command: 'custom'
+    custom: 'tool'
+    arguments: 'install --global dotnet-reportgenerator-globaltool --version 4.8.4'
+
 
 - task: DotNetCoreCLI@2
   displayName: 'Run unit tests - $(buildConfiguration)'
