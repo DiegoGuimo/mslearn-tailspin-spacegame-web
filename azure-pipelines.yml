@@ -2,7 +2,7 @@ trigger:
 - '*'
 
 pool:
-  name: 'RetoAzure'  
+  name: 'RetoAzure'  # Nombre del pool donde está MyAgent
   demands:
     - agent.name -equals MyAgent
 
@@ -68,40 +68,30 @@ steps:
     custom: tool
     arguments: 'restore'
 
-# 🔹 Instalar herramientas necesarias
-- script: 'dotnet tool install --global dotnet-coverage'
-  displayName: 'Install .NET Code Coverage Tool'
+# ✅ Ejecutar pruebas con cobertura en formato Cobertura
+- task: DotNetCoreCLI@2
+  displayName: 'Run unit tests with coverage - $(buildConfiguration)'
+  inputs:
+    command: 'test'
+    arguments: '--no-build --configuration $(buildConfiguration) --collect:"XPlat Code Coverage" --settings "CodeCoverage.runsettings"'
+    publishTestResults: true
+    projects: '**/*.Tests.csproj'
 
-- script: 'dotnet tool install --global dotnet-reportgenerator-globaltool'
-  displayName: 'Install ReportGenerator'
-
-# 🔹 Ejecutar pruebas con cobertura
-- script: |
-    dotnet-coverage collect `
-      --output $(Build.SourcesDirectory)/TestResults/coverage.cobertura.xml `
-      -- dotnet test C:\Users\diegoguillen\agent\_work\3\s\Tailspin.SpaceGame.Web.Tests\Tailspin.SpaceGame.Web.Tests.csproj `
-        --logger trx `
-        --no-build `
-        --configuration $(buildConfiguration)
-  displayName: 'Run unit tests with coverage'
-
-# 🔹 Listar archivos en TestResults
+# 🛠️ Verificar que se generó el archivo cobertura.xml
 - task: CmdLine@2
   displayName: 'List files in TestResults directory'
   inputs:
-    script: 'dir /s /b $(Build.SourcesDirectory)\TestResults'
+    script: 'dir /s /b $(Build.SourcesDirectory)\Tailspin.SpaceGame.Web.Tests\TestResults'
 
-# 🔹 Generar Reporte de Cobertura
+# ✅ Generar reporte de cobertura si el archivo cobertura.xml existe
 - task: CmdLine@2
   displayName: 'Generate code coverage report'
   inputs:
     script: |
-      reportgenerator -reports:$(Build.SourcesDirectory)/TestResults/coverage.cobertura.xml `
-                      -targetdir:$(Build.SourcesDirectory)/CodeCoverage `
-                      -reporttypes:HtmlInline_AzurePipelines
+      reportgenerator -reports:"$(Build.SourcesDirectory)/Tailspin.SpaceGame.Web.Tests/TestResults/Coverage/coverage.cobertura.xml" -targetdir:"$(Build.SourcesDirectory)/CodeCoverage" -reporttypes:"HtmlInline_AzurePipelines"
   condition: succeededOrFailed()
 
-# 🔹 Publicar Reporte de Cobertura
+# ✅ Publicar reporte de cobertura
 - task: PublishCodeCoverageResults@1
   displayName: 'Publish code coverage report'
   inputs:
