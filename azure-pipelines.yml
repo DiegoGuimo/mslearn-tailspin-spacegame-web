@@ -2,7 +2,7 @@ trigger:
 - '*'
 
 pool:
-  name: 'RetoAzure'  # Nombre del pool donde está MyAgent
+  name: 'RetoAzure'  
   demands:
     - agent.name -equals MyAgent
 
@@ -68,38 +68,40 @@ steps:
     custom: tool
     arguments: 'restore'
 
-- task: DotNetCoreCLI@2
-  displayName: 'Run unit tests with coverage - $(buildConfiguration)'
-  inputs:
-    command: 'test'
-    arguments: '--no-build --configuration $(buildConfiguration) --collect:"XPlat Code Coverage"'
-    publishTestResults: true
-    projects: '**/*.Tests.csproj'
+# 🔹 Instalar herramientas necesarias
+- script: 'dotnet tool install --global dotnet-coverage'
+  displayName: 'Install .NET Code Coverage Tool'
 
-# 🛠️ LISTAR ARCHIVOS PARA VERIFICAR DONDE SE GENERA LA COBERTURA
+- script: 'dotnet tool install --global dotnet-reportgenerator-globaltool'
+  displayName: 'Install ReportGenerator'
+
+# 🔹 Ejecutar pruebas con cobertura
+- script: |
+    dotnet-coverage collect `
+      --output $(Build.SourcesDirectory)/TestResults/coverage.cobertura.xml `
+      -- dotnet test C:\Users\diegoguillen\agent\_work\3\s\Tailspin.SpaceGame.Web.Tests\Tailspin.SpaceGame.Web.Tests.csproj `
+        --logger trx `
+        --no-build `
+        --configuration $(buildConfiguration)
+  displayName: 'Run unit tests with coverage'
+
+# 🔹 Listar archivos en TestResults
 - task: CmdLine@2
   displayName: 'List files in TestResults directory'
   inputs:
-    script: 'dir /s /b $(Build.SourcesDirectory)\Tailspin.SpaceGame.Web.Tests\TestResults'
+    script: 'dir /s /b $(Build.SourcesDirectory)\TestResults'
 
-# ✅ CONVERTIR COBERTURA A FORMATO COBERTURA.XML
+# 🔹 Generar Reporte de Cobertura
 - task: CmdLine@2
-  displayName: 'Convert .coverage to cobertura.xml'
+  displayName: 'Generate code coverage report'
   inputs:
     script: |
-      reportgenerator -reports:$(Build.SourcesDirectory)/Tailspin.SpaceGame.Web.Tests/TestResults/**/*.coverage -targetdir:$(Build.SourcesDirectory)/CodeCoverage -reporttypes:Cobertura
+      reportgenerator -reports:$(Build.SourcesDirectory)/TestResults/coverage.cobertura.xml `
+                      -targetdir:$(Build.SourcesDirectory)/CodeCoverage `
+                      -reporttypes:HtmlInline_AzurePipelines
   condition: succeededOrFailed()
 
-# ✅ GENERAR REPORTE DE COBERTURA SOLO SI EL ARCHIVO EXISTE
-- task: DotNetCoreCLI@2
-  displayName: 'Create code coverage report'
-  inputs:
-    command: custom
-    custom: tool
-    arguments: 'run reportgenerator -reports:$(Build.SourcesDirectory)/CodeCoverage/coverage.cobertura.xml -targetdir:$(Build.SourcesDirectory)/CodeCoverage -reporttypes:HtmlInline_AzurePipelines'
-  condition: succeededOrFailed()
-
-# ✅ PUBLICAR REPORTE DE COBERTURA CON RUTA CORRECTA
+# 🔹 Publicar Reporte de Cobertura
 - task: PublishCodeCoverageResults@1
   displayName: 'Publish code coverage report'
   inputs:
