@@ -77,11 +77,11 @@ steps:
     projects: '**/*.Tests.csproj'
 
 - task: DotNetCoreCLI@2
-  displayName: 'Install ReportGenerator tool'
+  displayName: 'Install .NET tools from local manifest'
   inputs:
     command: custom
     custom: tool
-    arguments: 'install --global dotnet-reportgenerator-globaltool'
+    arguments: 'restore'
 
 
 - task: DotNetCoreCLI@2
