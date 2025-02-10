@@ -2,7 +2,7 @@ trigger:
 - '*'
 
 pool:
-  name: 'RetoAzure'  # Nombre del pool donde está MyAgent
+  name: 'RetoAzure'  
   demands:
     - agent.name -equals MyAgent
 
@@ -48,12 +48,22 @@ steps:
   displayName: 'Write build info'
   workingDirectory: $(wwwrootDir)
 
+# ✅ Instalar Azure Artifacts Credential Provider
+- script: |
+    Invoke-WebRequest -Uri https://aka.ms/install-artifacts-credprovider.ps1 -OutFile install-artifacts-credprovider.ps1
+    ./install-artifacts-credprovider.ps1
+  displayName: 'Install Azure Artifacts Credential Provider'
+  condition: eq(variables['Agent.OS'], 'Windows_NT')
+
+# ✅ Restaurar dependencias con soporte para autenticación en Azure Artifacts
 - task: DotNetCoreCLI@2
   displayName: 'Restore project dependencies'
   inputs:
     command: 'restore'
     projects: '**/*.csproj'
+    arguments: '--interactive'
 
+# ✅ Construcción del proyecto
 - task: DotNetCoreCLI@2
   displayName: 'Build the project - $(buildConfiguration)'
   inputs:
@@ -61,21 +71,7 @@ steps:
     arguments: '--no-restore --configuration $(buildConfiguration)'
     projects: '**/*.csproj'
 
-- task: DotNetCoreCLI@2
-  displayName: 'Install .NET tools from local manifest'
-  inputs:
-    command: custom
-    custom: tool
-    arguments: 'restore'
-
-# ✅ Instalar ReportGenerator antes de usarlo
-- task: DotNetCoreCLI@2
-  displayName: 'Install ReportGenerator'
-  inputs:
-    command: custom
-    custom: tool
-    arguments: 'install --global dotnet-reportgenerator-globaltool'
-
+# ✅ Ejecutar pruebas y generar cobertura de código
 - task: DotNetCoreCLI@2
   displayName: 'Run unit tests - $(buildConfiguration)'
   inputs:
@@ -84,14 +80,14 @@ steps:
     publishTestResults: true
     projects: '**/*.Tests.csproj'
 
+# ✅ Instalar y generar reportes de cobertura
 - task: DotNetCoreCLI@2
-  displayName: 'Install .NET tools from local manifest'
+  displayName: 'Install ReportGenerator'
   inputs:
     command: custom
     custom: tool
-    arguments: 'restore'
+    arguments: 'install --global dotnet-reportgenerator-globaltool'
 
-# ✅ Generar el reporte de cobertura correctamente
 - script: |
     reportgenerator -reports:$(Build.SourcesDirectory)/**/coverage.cobertura.xml -targetdir:$(Build.SourcesDirectory)/CodeCoverage -reporttypes:HtmlInline_AzurePipelines
   displayName: 'Create code coverage report'
@@ -102,6 +98,7 @@ steps:
     codeCoverageTool: 'cobertura'
     summaryFileLocation: '$(Build.SourcesDirectory)/**/coverage.cobertura.xml'
 
+# ✅ Empaquetar el proyecto para Azure Artifacts
 - task: DotNetCoreCLI@2
   displayName: 'Pack the project - $(buildConfiguration)'
   inputs:
@@ -113,8 +110,9 @@ steps:
     minorVersion: '0'
     patchVersion: '0'
 
+# ✅ Publicar el paquete en Azure Artifacts
 - task: NuGetCommand@2
-  displayName: 'Publish NuGet package'
+  displayName: 'Publish NuGet package to Azure Artifacts'
   inputs:
     command: push
     packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg'
@@ -122,6 +120,7 @@ steps:
     allowPackageConflicts: true
   condition: succeeded()
 
+# ✅ Publicar el proyecto
 - task: DotNetCoreCLI@2
   displayName: 'Publish the project - $(buildConfiguration)'
   inputs:
@@ -133,31 +132,4 @@ steps:
 
 - task: PublishBuildArtifacts@1
   displayName: 'Publish Artifact: drop'
-  condition: succeeded()
-
-# ✅ Agregando los nuevos pasos
-- task: DotNetCoreCLI@2
-  displayName: 'Build the project - $(buildConfiguration)'
-  inputs:
-    command: 'build'
-    arguments: '--no-restore --configuration $(buildConfiguration)'
-    projects: '**/*.csproj'
-
-- task: DotNetCoreCLI@2
-  displayName: 'Pack the project - $(buildConfiguration)'
-  inputs:
-    command: 'pack'
-    projects: '**/*.csproj'
-    arguments: '--no-build --configuration $(buildConfiguration)'
-    versioningScheme: byPrereleaseNumber
-    majorVersion: '1'
-    minorVersion: '0'
-    patchVersion: '0'
-
-- task: NuGetCommand@2
-  displayName: 'Publish NuGet package'
-  inputs:
-    command: push
-    feedPublish: '$(System.TeamProject)/Tailspin.SpaceGame.Web.Models'
-    allowPackageConflicts: true
   condition: succeeded()
