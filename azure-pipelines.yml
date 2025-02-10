@@ -68,6 +68,14 @@ steps:
     custom: tool
     arguments: 'restore'
 
+# ✅ Instalar ReportGenerator antes de usarlo
+- task: DotNetCoreCLI@2
+  displayName: 'Install ReportGenerator'
+  inputs:
+    command: custom
+    custom: tool
+    arguments: 'install --global dotnet-reportgenerator-globaltool'
+
 - task: DotNetCoreCLI@2
   displayName: 'Run unit tests - $(buildConfiguration)'
   inputs:
@@ -83,12 +91,10 @@ steps:
     custom: tool
     arguments: 'restore'
 
-- task: DotNetCoreCLI@2
+# ✅ Generar el reporte de cobertura correctamente
+- script: |
+    reportgenerator -reports:$(Build.SourcesDirectory)/**/coverage.cobertura.xml -targetdir:$(Build.SourcesDirectory)/CodeCoverage -reporttypes:HtmlInline_AzurePipelines
   displayName: 'Create code coverage report'
-  inputs:
-    command: custom
-    custom: tool
-    arguments: 'run reportgenerator -reports:$(Build.SourcesDirectory)/**/coverage.cobertura.xml -targetdir:$(Build.SourcesDirectory)/CodeCoverage -reporttypes:HtmlInline_AzurePipelines'
 
 - task: PublishCodeCoverageResults@1
   displayName: 'Publish code coverage report'
@@ -129,6 +135,7 @@ steps:
   displayName: 'Publish Artifact: drop'
   condition: succeeded()
 
+# ✅ Agregando los nuevos pasos
 - task: DotNetCoreCLI@2
   displayName: 'Build the project - $(buildConfiguration)'
   inputs:
