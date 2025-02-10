@@ -49,11 +49,15 @@ steps:
   workingDirectory: $(wwwrootDir)
 
 # ✅ Instalar Azure Artifacts Credential Provider
-- script: |
-    Invoke-WebRequest -Uri https://aka.ms/install-artifacts-credprovider.ps1 -OutFile install-artifacts-credprovider.ps1
-    ./install-artifacts-credprovider.ps1
+- task: PowerShell@2
   displayName: 'Install Azure Artifacts Credential Provider'
   condition: eq(variables['Agent.OS'], 'Windows_NT')
+  inputs:
+    targetType: 'inline'
+    script: |
+      Invoke-WebRequest -Uri https://aka.ms/install-artifacts-credprovider.ps1 -OutFile install-artifacts-credprovider.ps1
+      ./install-artifacts-credprovider.ps1
+
 
 # ✅ Restaurar dependencias con soporte para autenticación en Azure Artifacts
 - task: DotNetCoreCLI@2
